@@ -666,11 +666,30 @@ if "prv" in plot_df.columns:
     )
     explanation(
         "PRV geeft variatie tussen hartslagen weer. De losse punten zijn de meetmomenten. "
-        "De lijn laat het voortschrijdend gemiddelde zien."
+        "De lijn laat het gemiddelde zien. Een hogere PRV staat gelijk aan meer rust en ontspanning. Een lagere PRV kan komen door activatie (tijdens en na inspanningen, slechte slaap, actief imuunsysteem, stress, enthausiastme)"
     )
 else:
     st.warning("Geen PRV-data gevonden.")
 
+
+if "temp" in plot_df.columns:
+    st.plotly_chart(
+        line_plot(
+            plot_df,
+            "temp",
+            "Huidtemperatuur",
+            "Temperatuur (°C)",
+            "#d62728"
+        ),
+        use_container_width=True
+    )
+    explanation(
+        "Huidtemperatuur kan veranderen door lichamelijke activatie. Een daling kan soms samenhangen "
+        "met acute stress. Als de huidtempratuur stijgt voor een langere tijd kan dit duiden op activatie van het afweersysteem (virussen, koorts, ontstekkingen) of herstel (na veel inspanning bijvoorbeeld)"
+        "Bij vrouwen stijgt de huidtempratuur na de eiersprong"
+    )
+else:
+    st.warning("Geen temperatuurdata gevonden.")
 
 if "hr" in plot_df.columns:
     st.plotly_chart(
@@ -684,8 +703,7 @@ if "hr" in plot_df.columns:
         use_container_width=True
     )
     explanation(
-        "De hartslag laat zien hoeveel slagen per minuut worden gemeten. De rode lijn is goed zichtbaar "
-        "in zowel lichte als donkere weergave."
+        "De hartslag laat zien hoeveel slagen per minuut worden gemeten."
     )
 else:
     st.warning("Geen hartslagdata gevonden.")
@@ -706,24 +724,6 @@ else:
     st.warning("Geen activity intensity-data gevonden.")
 
 
-if "resp" in plot_df.columns:
-    st.plotly_chart(
-        scatter_with_average_plot(
-            plot_df,
-            "resp",
-            "Ademhalingsfrequentie",
-            "Ademhaling per minuut",
-            "#9467bd"
-        ),
-        use_container_width=True
-    )
-    explanation(
-        "De ademhalingsfrequentie wordt weergegeven als losse meetpunten met een gemiddelde lijn. "
-        "Zo blijft de spreiding zichtbaar, terwijl de trend makkelijker te volgen is."
-    )
-else:
-    st.warning("Geen ademhalingsdata gevonden.")
-
 met_fig = met_plot(plot_df, aggregation_mode)
 
 if met_fig is not None:
@@ -735,8 +735,9 @@ if met_fig is not None:
         "MET staat voor Metabolic Equivalent of Task en geeft aan hoeveel energie een activiteit kost "
         "ten opzichte van rust. Ongeveer 1 MET is rust, 1.5 tot 3 MET is lichte activiteit, 3 tot 6 MET "
         "matige activiteit en boven 6 MET zware activiteit. Deze informatie kan helpen om het dagelijkse "
-        "energieverbruik beter te begrijpen. Voor voedings- of dieetadvies moet dit altijd gecombineerd "
-        "worden met lichaamsgewicht, totale duur, doelstelling en professioneel advies."
+        "energieverbruik beter te begrijpen. Zo kan je berekenen hoeveel calloriën je moet binnen krijgen op een dag. "
+        "Doe hiervoor het geweicht x de gemiddelde MET x het aantal uur (als je aantal calloriën op 1 dag wilt berekenen dan dus x 24)"
+        "Voor gewichtsbehoud eet je zoveel calloriën als uit deze som komt. Voor aankomen dus meer en afvallen minder."
     )
 else:
     st.warning("Geen MET-data gevonden.")
@@ -758,24 +759,23 @@ else:
     st.warning("Geen sleep detection-data gevonden.")
 
 
-if "temp" in plot_df.columns:
+if "resp" in plot_df.columns:
     st.plotly_chart(
-        line_plot(
+        scatter_with_average_plot(
             plot_df,
-            "temp",
-            "Huidtemperatuur",
-            "Temperatuur (°C)",
-            "#d62728"
+            "resp",
+            "Ademhalingsfrequentie",
+            "Ademhaling per minuut",
+            "#9467bd"
         ),
         use_container_width=True
     )
     explanation(
-        "Huidtemperatuur kan veranderen door lichamelijke activatie. Een daling kan soms samenhangen "
-        "met spanning of enthousiasme, maar moet altijd in context worden bekeken."
+        "De ademhalingsfrequentie wordt weergegeven als losse meetpunten met een gemiddelde lijn. "
+        "Zo blijft de spreiding zichtbaar, terwijl de trend makkelijker te volgen is."
     )
 else:
-    st.warning("Geen temperatuurdata gevonden.")
-
+    st.warning("Geen ademhalingsdata gevonden.")
 
 # -------------------------------------------------
 # Data bekijken
