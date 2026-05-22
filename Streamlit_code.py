@@ -87,27 +87,50 @@ def load_uploaded_files(uploaded_files):
         return pd.DataFrame()
 
     merged = pd.concat(dfs, axis=1)
-
-    # Dubbele kolommen samenvoegen door gemiddelde te nemen
-    merged = merged.T.groupby(level=0).mean().T
-
     merged = merged.sort_index()
     merged.index = merged.index.round("min")
+
+    # Zorg dat meetkolommen numeriek zijn
+    numeric_columns = ["eda", "prv", "temp", "hr", "resp", "movement"]
+
+    for col in numeric_columns:
+        if col in merged.columns:
+            if isinstance(merged[col], pd.DataFrame):
+                merged[col] = merged[col].apply(pd.to_numeric, errors="coerce")
+            else:
+                merged[col] = pd.to_numeric(merged[col], errors="coerce")
+
+    # Dubbele numerieke kolommen samenvoegen met gemiddelde
+    numeric_df = merged.select_dtypes(include="number")
+    numeric_df = numeric_df.T.groupby(level=0).mean().T
+
+    # Niet-numerieke kolommen, zoals activity_intensity, apart bewaren
+    non_numeric_df = merged.select_dtypes(exclude="number")
+
+    if not non_numeric_df.empty:
+        non_numeric_df = non_numeric_df.T.groupby(level=0).first().T
+        merged = pd.concat([numeric_df, non_numeric_df], axis=1)
+    else:
+        merged = numeric_df
 
     return merged
 
 
+
 def aggregate_data(df, mode):
+    numeric_df = df.select_dtypes(include="number")
+
     if mode == "Ruwe data / per minuut":
-        return df.resample("1min").mean()
+        return numeric_df.resample("1min").mean()
 
     if mode == "Gemiddelde per uur":
-        return df.resample("1h").mean()
+        return numeric_df.resample("1h").mean()
 
     if mode == "Gemiddelde per dag":
-        return df.resample("1d").mean()
+        return numeric_df.resample("1d").mean()
 
-    return df
+    return numeric_df
+
 
 
 def filter_by_time(df, start_date, start_time, end_date, end_time):
