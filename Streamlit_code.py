@@ -67,6 +67,13 @@ def load_single_file(uploaded_file):
 
     if "activity_intensity" in df.columns:
         output["activity_intensity"] = df["activity_intensity"]
+        
+    if "met" in df.columns:
+        output["met"] = pd.to_numeric(df["met"], errors="coerce")
+
+    if "sleep_detection_stage" in df.columns:
+        output["sleep_detection_stage"] = df["sleep_detection_stage"]
+
 
     if output.empty:
         st.warning(f"{uploaded_file.name} bevat geen herkende meetkolommen.")
@@ -91,7 +98,7 @@ def load_uploaded_files(uploaded_files):
     merged.index = merged.index.round("min")
 
     # Zorg dat meetkolommen numeriek zijn
-    numeric_columns = ["eda", "prv", "temp", "hr", "resp", "movement"]
+    numeric_columns = ["eda", "prv", "temp", "hr", "resp", "movement", "met"]
 
     for col in numeric_columns:
         if col in merged.columns:
@@ -163,6 +170,164 @@ def line_plot(df, column, title, y_label, color):
     )
 
     return fig
+
+def met_plot(df, aggregation_mode):
+    if "met" not in df.columns:
+        return None
+
+    data = df["met"].dropna()
+
+    if data.empty:
+        return None
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=data.index,
+            y=data.values,
+            mode="lines",
+            name="MET",
+            line=dict(color="#ff7f0e", width=2)
+        )
+    )
+
+    gemiddelde = data.mean()
+
+    fig.add_trace(
+        go.Scatter(
+            x=data.index,
+            y=[gemiddelde] * len(data),
+            mode="lines",
+            name=f"Gemiddelde MET: {gemiddelde:.2f}",
+            line=dict(color="#111111", width=2, dash="dash")
+        )
+    )
+
+    fig.add_hrect(y0=0, y1=1.5, fillcolor="#4e79a7", opacity=0.10, line_width=0)
+    fig.add_hrect(y0=1.5, y1=3.0, fillcolor="#59a14f", opacity=0.10, line_width=0)
+    fig.add_hrect(y0=3.0, y1=6.0, fillcolor="#f28e2b", opacity=0.10, line_width=0)
+    fig.add_hrect(y0=6.0, y1=max(6.1, data.max()), fillcolor="#e15759", opacity=0.10, line_width=0)
+
+    fig.update_layout(
+        title="MET: energieverbruik tijdens activiteit",
+        height=440,
+        margin=dict(l=30, r=30, t=60, b=40),
+        template="plotly_white",
+        xaxis_title="Tijd",
+        yaxis_title="MET",
+        hovermode="x unified",
+        legend_title="Waarde"
+    )
+
+    return fig
+
+
+def clean_sleep_label(value):
+    value = str(value).strip()
+
+    mapping = {
+        "0": "Wakker",
+        "101": "Slaap",
+        "102": "Wakker tijdens slaapperiode",
+        "300": "Langere ontwaking",
+        "0.0": "Wakker",
+        "101.0": "Slaap",
+        "102.0": "Wakker tijdens slaapperiode",
+        "300.0": "Langere ontwaking"
+    }
+
+    return mapping.get(value, value)
+
+
+def sleep_detection_barplot(df, aggregation_mode):
+    if "sleep_detection_stage" not in df.columns:
+        return None
+
+    sleep = df["sleep_detection_stage"]
+
+    if isinstance(sleep, pd.DataFrame):
+        sleep = sleep.bfill(axis=1).iloc[:, 0]
+
+    sleep = sleep.dropna()
+
+    if sleep.empty:
+        return None
+
+    sleep = sleep.apply(clean_sleep_label)
+
+    if aggregation_mode == "Ruwe data / per minuut":
+        freq = "1min"
+        title = "Slaapdetectie per minuut"
+    elif aggregation_mode == "Gemiddelde per uur":
+        freq = "1h"
+        title = "Slaapdetectie per uur"
+    elif aggregation_mode == "Gemiddelde per dag":
+        freq = "1d"
+        title = "Slaapdetectie per dag"
+    else:
+        freq = "1min"
+        title = "Slaapdetectie"
+
+    sleep_df = pd.DataFrame(index=sleep.index)
+    sleep_df["fase"] = sleep.values
+    sleep_df["periode"] = sleep_df.index.floor(freq)
+
+    counts = pd.crosstab(
+        sleep_df["periode"],
+        sleep_df["fase"],
+        normalize="index"
+    ) * 100
+
+    if counts.empty:
+        return None
+
+    color_map = {
+        "Wakker": "#4e79a7",
+        "Slaap": "#59a14f",
+        "Wakker tijdens slaapperiode": "#f28e2b",
+        "Langere ontwaking": "#e15759"
+    }
+
+    gewenste_volgorde = [
+        "Slaap",
+        "Wakker",
+        "Wakker tijdens slaapperiode",
+        "Langere ontwaking"
+    ]
+
+    kolommen = [col for col in gewenste_volgorde if col in counts.columns]
+    kolommen += [col for col in counts.columns if col not in kolommen]
+
+    fig = go.Figure()
+
+    for fase in kolommen:
+        fig.add_trace(
+            go.Bar(
+                x=counts.index,
+                y=counts[fase],
+                name=fase,
+                marker_color=color_map.get(fase, "#999999"),
+                hovertemplate="%{x}<br>" + fase + ": %{y:.1f}%<extra></extra>"
+            )
+        )
+
+    fig.update_layout(
+        title=title,
+        height=460,
+        margin=dict(l=30, r=30, t=60, b=50),
+        template="plotly_white",
+        xaxis_title="Tijd",
+        yaxis_title="Percentage van de tijd (%)",
+        barmode="stack",
+        yaxis=dict(range=[0, 100]),
+        hovermode="x unified",
+        legend_title="Slaapfase"
+    )
+
+    return fig
+
+
 def scatter_with_average_plot(df, column, title, y_label, color):
     fig = go.Figure()
 
@@ -423,7 +588,7 @@ aggregation_mode = st.sidebar.radio(
 # Data laden
 # -------------------------------------------------
 if not uploaded_files:
-    st.info("Upload CSV-bestanden om te starten.")
+    st.info("Upload CSV-bestanden om te starten. Alleen de volgende data kan worden ingeladen: eda, prv, temperature_celsius, pulse_rate_bpm, respiratory_rate_brpm, activity_intensity, met en sleep_detection_stage")
     st.stop()
 
 df = load_uploaded_files(uploaded_files)
@@ -558,6 +723,39 @@ if "resp" in plot_df.columns:
     )
 else:
     st.warning("Geen ademhalingsdata gevonden.")
+
+met_fig = met_plot(plot_df, aggregation_mode)
+
+if met_fig is not None:
+    st.plotly_chart(
+        met_fig,
+        use_container_width=True
+    )
+    explanation(
+        "MET staat voor Metabolic Equivalent of Task en geeft aan hoeveel energie een activiteit kost "
+        "ten opzichte van rust. Ongeveer 1 MET is rust, 1.5 tot 3 MET is lichte activiteit, 3 tot 6 MET "
+        "matige activiteit en boven 6 MET zware activiteit. Deze informatie kan helpen om het dagelijkse "
+        "energieverbruik beter te begrijpen. Voor voedings- of dieetadvies moet dit altijd gecombineerd "
+        "worden met lichaamsgewicht, totale duur, doelstelling en professioneel advies."
+    )
+else:
+    st.warning("Geen MET-data gevonden.")
+
+
+sleep_fig = sleep_detection_barplot(filtered_df, aggregation_mode)
+
+if sleep_fig is not None:
+    st.plotly_chart(
+        sleep_fig,
+        use_container_width=True
+    )
+    explanation(
+        "Deze grafiek laat per gekozen tijdseenheid zien welk percentage van de tijd iemand wakker was, "
+        "sliep, wakker was tijdens een slaapperiode of een langere ontwaking had. Bij uurweergave wordt "
+        "dit dus per uur berekend, bij dagweergave per dag."
+    )
+else:
+    st.warning("Geen sleep detection-data gevonden.")
 
 
 if "temp" in plot_df.columns:
