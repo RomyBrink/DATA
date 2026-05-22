@@ -206,6 +206,89 @@ def hr_activity_plot(df):
     fig.update_yaxes(title_text="Activiteit / beweging", secondary_y=True)
 
     return fig
+def prv_scatter_plot(df):
+    fig = go.Figure()
+
+    data = df["prv"].dropna()
+
+    fig.add_trace(
+        go.Scatter(
+            x=data.index,
+            y=data.values,
+            mode="markers",
+            name="Meetpunten",
+            marker=dict(color="#2ca02c", size=6, opacity=0.45)
+        )
+    )
+
+    smooth = data.rolling(window=5, min_periods=1).mean()
+
+    fig.add_trace(
+        go.Scatter(
+            x=smooth.index,
+            y=smooth.values,
+            mode="lines",
+            name="Gemiddelde lijn",
+            line=dict(color="#145a32", width=3)
+        )
+    )
+
+    fig.update_layout(
+        title="PRV / hartslagvariabiliteit",
+        height=420,
+        margin=dict(l=30, r=30, t=60, b=30),
+        template="plotly_white",
+        xaxis_title="Tijd",
+        yaxis_title="PRV RMSSD (ms)",
+        hovermode="x unified"
+    )
+
+    return fig
+
+
+def activity_intensity_barplot(df):
+    if "activity_intensity" not in df.columns:
+        return None
+
+    activity = df["activity_intensity"].dropna()
+
+    if activity.empty:
+        return None
+
+    percentages = activity.value_counts(normalize=True).sort_index() * 100
+
+    colors = [
+        "#4e79a7",
+        "#59a14f",
+        "#f28e2b",
+        "#e15759",
+        "#b07aa1",
+        "#76b7b2"
+    ]
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Bar(
+            x=percentages.index.astype(str),
+            y=percentages.values,
+            marker_color=colors[:len(percentages)],
+            text=[f"{value:.1f}%" for value in percentages.values],
+            textposition="outside"
+        )
+    )
+
+    fig.update_layout(
+        title="Activiteit per zone",
+        height=420,
+        margin=dict(l=30, r=30, t=60, b=50),
+        template="plotly_white",
+        xaxis_title="Activiteitszone",
+        yaxis_title="Percentage van de tijd (%)",
+        yaxis=dict(range=[0, max(100, percentages.max() + 10)])
+    )
+
+    return fig
 
 
 def explanation(text):
@@ -296,85 +379,94 @@ col4.metric("Weergave", aggregation_mode)
 
 st.divider()
 
-
 # -------------------------------------------------
 # Grafieken
 # -------------------------------------------------
-left, right = st.columns(2)
+st.subheader("Grafieken")
 
-with left:
-    if "eda" in plot_df.columns:
-        st.plotly_chart(
-            line_plot(
-                plot_df,
-                "eda",
-                "EDA huidgeleiding",
-                "EDA (µS)",
-                "#1f77b4"
-            ),
-            use_container_width=True
-        )
-        explanation(
-            "EDA meet huidgeleiding. Hogere waarden of pieken kunnen wijzen op verhoogde activatie, "
-            "bijvoorbeeld door spanning, stress of enthousiasme."
-        )
-    else:
-        st.warning("Geen EDA-data gevonden.")
-
-with right:
-    if "prv" in plot_df.columns:
-        st.plotly_chart(
-            line_plot(
-                plot_df,
-                "prv",
-                "PRV / hartslagvariabiliteit",
-                "PRV RMSSD (ms)",
-                "#2ca02c"
-            ),
-            use_container_width=True
-        )
-        explanation(
-            "PRV geeft variatie tussen hartslagen weer. Een hogere PRV wordt vaak geassocieerd "
-            "met ontspanning en herstel, mits de signaalkwaliteit voldoende is."
-        )
-    else:
-        st.warning("Geen PRV-data gevonden.")
+if "eda" in plot_df.columns:
+    st.plotly_chart(
+        line_plot(
+            plot_df,
+            "eda",
+            "EDA huidgeleiding",
+            "EDA (µS)",
+            "#1f77b4"
+        ),
+        use_container_width=True
+    )
+    explanation(
+        "EDA meet huidgeleiding. Hogere waarden of pieken kunnen wijzen op verhoogde activatie, "
+        "bijvoorbeeld door spanning, stress of enthousiasme."
+    )
+else:
+    st.warning("Geen EDA-data gevonden.")
 
 
-left, right = st.columns(2)
+if "prv" in plot_df.columns:
+    st.plotly_chart(
+        prv_scatter_plot(plot_df),
+        use_container_width=True
+    )
+    explanation(
+        "PRV geeft variatie tussen hartslagen weer. De losse punten zijn de ruwe meetmomenten. "
+        "De lijn laat het voortschrijdend gemiddelde zien, waardoor de algemene trend beter zichtbaar wordt."
+    )
+else:
+    st.warning("Geen PRV-data gevonden.")
 
-with left:
-    if "temp" in plot_df.columns:
-        st.plotly_chart(
-            line_plot(
-                plot_df,
-                "temp",
-                "Huidtemperatuur",
-                "Temperatuur (°C)",
-                "#d62728"
-            ),
-            use_container_width=True
-        )
-        explanation(
-            "Huidtemperatuur kan veranderen door lichamelijke activatie. Een daling kan soms "
-            "samenhangen met spanning of enthousiasme, maar moet altijd in context worden bekeken."
-        )
-    else:
-        st.warning("Geen temperatuurdata gevonden.")
 
-with right:
-    if "hr" in plot_df.columns:
-        st.plotly_chart(
-            hr_activity_plot(plot_df),
-            use_container_width=True
-        )
-        explanation(
-            "Deze grafiek vergelijkt hartslag met beweging. Een hogere hartslag tijdens veel beweging "
-            "kan passen bij activiteit. Een hogere hartslag zonder beweging kan mogelijk wijzen op spanning "
-            "of emotionele activatie."
-        )
-    else:
-        st.warning("Geen hartslagdata gevonden.")
+if "temp" in plot_df.columns:
+    st.plotly_chart(
+        line_plot(
+            plot_df,
+            "temp",
+            "Huidtemperatuur",
+            "Temperatuur (°C)",
+            "#d62728"
+        ),
+        use_container_width=True
+    )
+    explanation(
+        "Huidtemperatuur kan veranderen door lichamelijke activatie. Een daling kan soms samenhangen "
+        "met spanning of enthousiasme, maar moet altijd in context worden bekeken."
+    )
+else:
+    st.warning("Geen temperatuurdata gevonden.")
+
+
+if "hr" in plot_df.columns:
+    st.plotly_chart(
+        line_plot(
+            plot_df,
+            "hr",
+            "Hartslag",
+            "Hartslag (BPM)",
+            "#111111"
+        ),
+        use_container_width=True
+    )
+    explanation(
+        "De hartslag laat zien hoeveel slagen per minuut worden gemeten. Een hogere hartslag kan passen "
+        "bij beweging, spanning of emotionele activatie."
+    )
+else:
+    st.warning("Geen hartslagdata gevonden.")
+
+
+activity_fig = activity_intensity_barplot(filtered_df)
+
+if activity_fig is not None:
+    st.plotly_chart(
+        activity_fig,
+        use_container_width=True
+    )
+    explanation(
+        "Deze grafiek laat zien hoeveel procent van de geselecteerde tijd de gebruiker in elke "
+        "activiteitszone zat. Elke zone heeft een eigen kleur."
+    )
+else:
+    st.warning("Geen activity intensity-data gevonden.")
 
 
 if "resp" in plot_df.columns:
