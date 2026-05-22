@@ -666,7 +666,7 @@ if "prv" in plot_df.columns:
     )
     explanation(
         "PRV geeft variatie tussen hartslagen weer. De losse punten zijn de meetmomenten. "
-        "De lijn laat het gemiddelde zien. Een hogere PRV staat gelijk aan meer rust en ontspanning. Een lagere PRV kan komen door activatie (tijdens en na inspanningen, slechte slaap, actief imuunsysteem, stress, enthausiastme)"
+        "De lijn laat het gemiddelde zien. Een hogere PRV staat gelijk aan meer rust en ontspanning. Een lagere PRV kan veroorzaakt worden door activatie van het lichaam (tijdens en na inspanningen, slechte slaap, actief immuunsysteem, stress, enthousiasme)"
     )
 else:
     st.warning("Geen PRV-data gevonden.")
@@ -685,8 +685,7 @@ if "temp" in plot_df.columns:
     )
     explanation(
         "Huidtemperatuur kan veranderen door lichamelijke activatie. Een daling kan soms samenhangen "
-        "met acute stress. Als de huidtempratuur stijgt voor een langere tijd kan dit duiden op activatie van het afweersysteem (virussen, koorts, ontstekkingen) of herstel (na veel inspanning bijvoorbeeld)"
-        "Bij vrouwen stijgt de huidtempratuur na de eiersprong"
+        "met acute stress. Als de huidtemperatuur gedurende langere tijd stijgt, kan dit duiden op activatie van het afweersysteem (bijvoorbeeld door virussen, koorts of ontstekingen) of op herstel na inspanning. Bij vrouwen stijgt de huidtemperatuur vaak na de eisprong."
     )
 else:
     st.warning("Geen temperatuurdata gevonden.")
@@ -735,9 +734,9 @@ if met_fig is not None:
         "MET staat voor Metabolic Equivalent of Task en geeft aan hoeveel energie een activiteit kost "
         "ten opzichte van rust. Ongeveer 1 MET is rust, 1.5 tot 3 MET is lichte activiteit, 3 tot 6 MET "
         "matige activiteit en boven 6 MET zware activiteit. Deze informatie kan helpen om het dagelijkse "
-        "energieverbruik beter te begrijpen. Zo kan je berekenen hoeveel calloriën je moet binnen krijgen op een dag. "
-        "Doe hiervoor het geweicht x de gemiddelde MET x het aantal uur (als je aantal calloriën op 1 dag wilt berekenen dan dus x 24)"
-        "Voor gewichtsbehoud eet je zoveel calloriën als uit deze som komt. Voor aankomen dus meer en afvallen minder."
+        "energieverbruik beter te begrijpen. Zo kan je berekenen hoeveel calorieën je moet binnen krijgen op een dag. "
+        "Doe hiervoor het geweicht x de gemiddelde MET x het aantal uur (als je aantal calorieën op 1 dag wilt berekenen dan dus x 24)"
+        "Voor gewichtsbehoud eet je ongeveer evenveel calorieën als uit deze berekening komt. Voor aankomen eet je meer, en voor afvallen minder."
     )
 else:
     st.warning("Geen MET-data gevonden.")
