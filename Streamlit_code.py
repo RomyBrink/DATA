@@ -163,6 +163,135 @@ def line_plot(df, column, title, y_label, color):
     )
 
     return fig
+def scatter_with_average_plot(df, column, title, y_label, color):
+    fig = go.Figure()
+
+    data = df[column].dropna()
+
+    fig.add_trace(
+        go.Scatter(
+            x=data.index,
+            y=data.values,
+            mode="markers",
+            name="Meetpunten",
+            marker=dict(color=color, size=6, opacity=0.45)
+        )
+    )
+
+    smooth = data.rolling(window=5, min_periods=1).mean()
+
+    fig.add_trace(
+        go.Scatter(
+            x=smooth.index,
+            y=smooth.values,
+            mode="lines",
+            name="Gemiddelde lijn",
+            line=dict(color=color, width=3)
+        )
+    )
+
+    fig.update_layout(
+        title=title,
+        height=420,
+        margin=dict(l=30, r=30, t=60, b=30),
+        template="plotly_white",
+        xaxis_title="Tijd",
+        yaxis_title=y_label,
+        hovermode="x unified"
+    )
+
+    return fig
+
+
+def clean_activity_label(value):
+    mapping = {
+        "sedentary": "Stilstand",
+        "Sedentary": "Stilstand",
+        "SEDENTARY": "Stilstand",
+        "VPA": "Zware inspanning",
+        "MPA": "Matige inspanning",
+        "LPA": "Lichte inspanning"
+    }
+
+    return mapping.get(str(value), str(value))
+
+
+def activity_intensity_barplot(df, aggregation_mode):
+    if "activity_intensity" not in df.columns:
+        return None
+
+    activity = df["activity_intensity"].dropna()
+
+    if activity.empty:
+        return None
+
+    activity = activity.apply(clean_activity_label)
+
+    if aggregation_mode == "Ruwe data / per minuut":
+        freq = "1min"
+        title = "Activiteit per zone per minuut"
+    elif aggregation_mode == "Gemiddelde per uur":
+        freq = "1h"
+        title = "Activiteit per zone per uur"
+    elif aggregation_mode == "Gemiddelde per dag":
+        freq = "1d"
+        title = "Activiteit per zone per dag"
+    else:
+        freq = "1min"
+        title = "Activiteit per zone"
+
+    activity_df = pd.DataFrame({"activity_intensity": activity})
+    activity_df["periode"] = activity_df.index.floor(freq)
+
+    percentages = (
+        activity_df
+        .groupby("periode")["activity_intensity"]
+        .value_counts(normalize=True)
+        .mul(100)
+        .rename("percentage")
+        .reset_index()
+    )
+
+    if percentages.empty:
+        return None
+
+    color_map = {
+        "Stilstand": "#4e79a7",
+        "Lichte inspanning": "#59a14f",
+        "Matige inspanning": "#f28e2b",
+        "Zware inspanning": "#e15759"
+    }
+
+    fig = go.Figure()
+
+    for zone in percentages["activity_intensity"].unique():
+        zone_df = percentages[percentages["activity_intensity"] == zone]
+
+        fig.add_trace(
+            go.Bar(
+                x=zone_df["periode"],
+                y=zone_df["percentage"],
+                name=zone,
+                marker_color=color_map.get(zone, "#999999"),
+                text=[f"{value:.1f}%" for value in zone_df["percentage"]],
+                textposition="inside"
+            )
+        )
+
+    fig.update_layout(
+        title=title,
+        height=460,
+        margin=dict(l=30, r=30, t=60, b=50),
+        template="plotly_white",
+        xaxis_title="Tijd",
+        yaxis_title="Percentage van de tijd (%)",
+        barmode="stack",
+        yaxis=dict(range=[0, 100]),
+        hovermode="x unified",
+        legend_title="Activiteitszone"
+    )
+
+    return fig
 
 
 def hr_activity_plot(df):
@@ -174,7 +303,7 @@ def hr_activity_plot(df):
             y=df["hr"],
             mode="lines",
             name="Hartslag",
-            line=dict(color="#111111", width=2)
+            line=dict(color="#FF0000", width=2)
         ),
         secondary_y=False
     )
@@ -405,15 +534,74 @@ else:
 
 if "prv" in plot_df.columns:
     st.plotly_chart(
-        prv_scatter_plot(plot_df),
+        scatter_with_average_plot(
+            plot_df,
+            "prv",
+            "PRV / hartslagvariabiliteit",
+            "PRV RMSSD (ms)",
+            "#2ca02c"
+        ),
         use_container_width=True
     )
     explanation(
-        "PRV geeft variatie tussen hartslagen weer. De losse punten zijn de ruwe meetmomenten. "
-        "De lijn laat het voortschrijdend gemiddelde zien, waardoor de algemene trend beter zichtbaar wordt."
+        "PRV geeft variatie tussen hartslagen weer. De losse punten zijn de meetmomenten. "
+        "De lijn laat het voortschrijdend gemiddelde zien."
     )
 else:
     st.warning("Geen PRV-data gevonden.")
+
+
+if "hr" in plot_df.columns:
+    st.plotly_chart(
+        line_plot(
+            plot_df,
+            "hr",
+            "Hartslag",
+            "Hartslag (BPM)",
+            "#e60000"
+        ),
+        use_container_width=True
+    )
+    explanation(
+        "De hartslag laat zien hoeveel slagen per minuut worden gemeten. De rode lijn is goed zichtbaar "
+        "in zowel lichte als donkere weergave."
+    )
+else:
+    st.warning("Geen hartslagdata gevonden.")
+
+
+activity_fig = activity_intensity_barplot(filtered_df, aggregation_mode)
+
+if activity_fig is not None:
+    st.plotly_chart(
+        activity_fig,
+        use_container_width=True
+    )
+    explanation(
+        "Deze grafiek laat per gekozen tijdseenheid zien hoeveel procent van de tijd de gebruiker in elke "
+        "activiteitszone zat. Bij uurweergave wordt dit dus per uur berekend, bij dagweergave per dag."
+    )
+else:
+    st.warning("Geen activity intensity-data gevonden.")
+
+
+if "resp" in plot_df.columns:
+    st.plotly_chart(
+        scatter_with_average_plot(
+            plot_df,
+            "resp",
+            "Ademhalingsfrequentie",
+            "Ademhaling per minuut",
+            "#9467bd"
+        ),
+        use_container_width=True
+    )
+    explanation(
+        "De ademhalingsfrequentie wordt weergegeven als losse meetpunten met een gemiddelde lijn. "
+        "Zo blijft de spreiding zichtbaar, terwijl de trend makkelijker te volgen is."
+    )
+else:
+    st.warning("Geen ademhalingsdata gevonden.")
 
 
 if "temp" in plot_df.columns:
@@ -433,57 +621,6 @@ if "temp" in plot_df.columns:
     )
 else:
     st.warning("Geen temperatuurdata gevonden.")
-
-
-if "hr" in plot_df.columns:
-    st.plotly_chart(
-        line_plot(
-            plot_df,
-            "hr",
-            "Hartslag",
-            "Hartslag (BPM)",
-            "#111111"
-        ),
-        use_container_width=True
-    )
-    explanation(
-        "De hartslag laat zien hoeveel slagen per minuut worden gemeten. Een hogere hartslag kan passen "
-        "bij beweging, spanning of emotionele activatie."
-    )
-else:
-    st.warning("Geen hartslagdata gevonden.")
-
-
-activity_fig = activity_intensity_barplot(filtered_df)
-
-if activity_fig is not None:
-    st.plotly_chart(
-        activity_fig,
-        use_container_width=True
-    )
-    explanation(
-        "Deze grafiek laat zien hoeveel procent van de geselecteerde tijd de gebruiker in elke "
-        "activiteitszone zat. Elke zone heeft een eigen kleur."
-    )
-else:
-    st.warning("Geen activity intensity-data gevonden.")
-
-
-if "resp" in plot_df.columns:
-    st.plotly_chart(
-        line_plot(
-            plot_df,
-            "resp",
-            "Ademhalingsfrequentie",
-            "Ademhaling per minuut",
-            "#9467bd"
-        ),
-        use_container_width=True
-    )
-    explanation(
-        "De ademhalingsfrequentie laat zien hoe vaak iemand per minuut ademt. Een lagere frequentie "
-        "past vaak bij rust, terwijl een hogere frequentie kan passen bij activiteit of spanning."
-    )
 
 
 # -------------------------------------------------
