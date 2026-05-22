@@ -375,50 +375,6 @@ def prv_scatter_plot(df):
     return fig
 
 
-def activity_intensity_barplot(df):
-    if "activity_intensity" not in df.columns:
-        return None
-
-    activity = df["activity_intensity"].dropna()
-
-    if activity.empty:
-        return None
-
-    percentages = activity.value_counts(normalize=True).sort_index() * 100
-
-    colors = [
-        "#4e79a7",
-        "#59a14f",
-        "#f28e2b",
-        "#e15759",
-        "#b07aa1",
-        "#76b7b2"
-    ]
-
-    fig = go.Figure()
-
-    fig.add_trace(
-        go.Bar(
-            x=percentages.index.astype(str),
-            y=percentages.values,
-            marker_color=colors[:len(percentages)],
-            text=[f"{value:.1f}%" for value in percentages.values],
-            textposition="outside"
-        )
-    )
-
-    fig.update_layout(
-        title="Activiteit per zone",
-        height=420,
-        margin=dict(l=30, r=30, t=60, b=50),
-        template="plotly_white",
-        xaxis_title="Activiteitszone",
-        yaxis_title="Percentage van de tijd (%)",
-        yaxis=dict(range=[0, max(100, percentages.max() + 10)])
-    )
-
-    return fig
-
 
 def explanation(text):
     st.markdown(
